@@ -4,6 +4,7 @@
 import os
 from tqdm import tqdm
 import numpy as np
+import pyarrow.compute as pc
 import tiktoken
 from datasets import load_dataset # huggingface datasets
 
@@ -20,7 +21,7 @@ enc = tiktoken.get_encoding("gpt2")
 
 if __name__ == '__main__':
     # takes 54GB in huggingface .cache dir, about 8M documents (8,013,769)
-    dataset = load_dataset("openwebtext", num_proc=num_proc_load_dataset)
+    dataset = load_dataset("Skylion007/openwebtext", num_proc=num_proc_load_dataset)
 
     # owt by default only contains the 'train' split, so create a test split
     split_dataset = dataset["train"].train_test_split(test_size=0.0005, seed=2357, shuffle=True)
@@ -66,8 +67,8 @@ if __name__ == '__main__':
         idx = 0
         for batch_idx in tqdm(range(total_batches), desc=f'writing {filename}'):
             # Batch together samples for faster write
-            batch = dset.shard(num_shards=total_batches, index=batch_idx, contiguous=True).with_format('numpy')
-            arr_batch = np.concatenate(batch['ids'])
+            batch = dset.shard(num_shards=total_batches, index=batch_idx, contiguous=True)
+            arr_batch = pc.list_flatten(batch.data.column('ids')).to_numpy()
             # Write into mmap
             arr[idx : idx + len(arr_batch)] = arr_batch
             idx += len(arr_batch)
